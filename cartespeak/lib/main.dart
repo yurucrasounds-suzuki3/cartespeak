@@ -1,122 +1,153 @@
-import 'package:flutter/material.dart';
+class KarteDraft {
+  List<String> menu = [];     // カット/カラー/縮毛矯正...
+  String color = "";          // 暗めアッシュ 等
+  String length = "";         // ボブ/ショート/肩くらい 等
+  List<String> concerns = []; // 広がり/白髪/ダメージ 等
+  String caution = "";        // 頭皮しみやすい 等
+  String next = "";           // 6週間でリタッチ 等
+  String memo = "";           // 元文章（保険）
 
-void main() {
-  runApp(const MyApp());
+  Map<String, dynamic> toMap() => {
+    "menu": menu,
+    "color": color,
+    "length": length,
+    "concerns": concerns,
+    "caution": caution,
+    "next": next,
+    "memo": memo,
+    "createdAt": FieldValue.serverTimestamp(),
+  };
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+KarteDraft parseKarteFromText(String text) {
+  final t = text.replaceAll(RegExp(r"\s+"), ""); // 空白除去
+  final d = KarteDraft();
+  d.memo = text;
 
-  // This widget is the root of your application.
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
+  // ===== メニュー =====
+  void addMenu(String label, List<String> words) {
+    if (words.any((w) => t.contains(w)) && !d.menu.contains(label)) {
+      d.menu.add(label);
+    }
   }
+  addMenu("カット", ["カット", "切って", "整えて", "毛量調整", "すいて"]);
+  addMenu("カラー", ["カラー", "染め", "染める"]);
+  addMenu("リタッチ", ["リタッチ", "根元"]);
+  addMenu("トリートメント", ["トリートメント", "ケア", "補修", "髪質改善"]);
+  addMenu("縮毛矯正", ["縮毛矯正", "ストレート", "酸性ストレート"]);
+  addMenu("パーマ", ["パーマ", "デジパ", "デジタルパーマ"]);
+  addMenu("ヘッドスパ", ["ヘッドスパ", "スパ", "炭酸", "スキャルプ"]);
+
+  // ===== 色（超簡単）=====
+  if (t.contains("アッシュ")) d.color = "アッシュ";
+  if (t.contains("ベージュ")) d.color = "ベージュ";
+  if (t.contains("ブラウン") || t.contains("茶")) d.color = d.color.isEmpty ? "ブラウン" : d.color;
+  if (t.contains("グレージュ")) d.color = "グレージュ";
+  if (t.contains("オリーブ") || t.contains("マット")) d.color = "オリーブ/マット";
+
+  // 明るさ
+  if (t.contains("暗め") || t.contains("トーンダウン") || t.contains("落ち着")) {
+    d.color = d.color.isEmpty ? "暗め" : "暗め ${d.color}";
+  }
+  if (t.contains("明るめ") || t.contains("トーンアップ") || t.contains("ハイトーン")) {
+    d.color = d.color.isEmpty ? "明るめ" : "明るめ ${d.color}";
+  }
+
+  // 意図
+  if (t.contains("赤み消し") || t.contains("赤味消し") || t.contains("赤みを消")) {
+    d.color = d.color.isEmpty ? "赤み消し" : "${d.color}（赤み消し）";
+  }
+
+  // ===== 長さ/スタイル =====
+  if (t.contains("ボブ")) d.length = "ボブ";
+  else if (t.contains("ショート")) d.length = "ショート";
+  else if (t.contains("ロング")) d.length = "ロング";
+  else if (t.contains("ミディアム")) d.length = "ミディアム";
+  if (t.contains("肩") || t.contains("鎖骨")) d.length = d.length.isEmpty ? "肩くらい" : "${d.length}（肩くらい）";
+
+  // ===== 悩み =====
+  void addConcern(String label, List<String> words) {
+    if (words.any((w) => t.contains(w)) && !d.concerns.contains(label)) {
+      d.concerns.add(label);
+    }
+  }
+  addConcern("広がり/うねり", ["広がり", "うねり", "まとまらない", "膨らむ"]);
+  addConcern("白髪", ["白髪", "グレイ", "白髪ぼかし"]);
+  addConcern("ダメージ", ["ダメージ", "傷み", "枝毛", "切れ毛", "ハイダメージ"]);
+  addConcern("乾燥", ["乾燥", "パサつき", "ぱさぱさ"]);
+
+  // ===== 注意（頭皮）=====
+  if (t.contains("しみ") || t.contains("敏感") || t.contains("かぶれ") || t.contains("かゆ")) {
+    d.caution = "頭皮が敏感/しみやすい";
+  }
+
+  // ===== 次回提案 =====
+  // ざっくり「◯週間」「◯ヶ月」を拾う
+  final m = RegExp(r"(\d+)(週間|週|ヶ月|か月|月)").firstMatch(text);
+  final period = m == null ? "" : "${m.group(1)}${m.group(2)}";
+  if (text.contains("次回") || text.contains("次は") || period.isNotEmpty) {
+    final parts = <String>[];
+    if (period.isNotEmpty) parts.add(period);
+    if (text.contains("リタッチ") || text.contains("根元")) parts.add("リタッチ");
+    if (text.contains("トリートメント")) parts.add("トリートメント");
+    if (parts.isNotEmpty) d.next = parts.join(" / ");
+  }
+
+  return d;
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+final SpeechToText _stt = SpeechToText();
+Timer? _autoStop;
+String transcript = "";
+KarteDraft draft = KarteDraft();
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
+Future<void> startStt60s() async {
+  final ok = await _stt.initialize();
+  if (!ok) throw Exception("音声認識が使えません");
 
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
+  transcript = "";
+  await _stt.listen(
+    localeId: "ja_JP",
+    onResult: (res) {
+      transcript = res.recognizedWords;
+      // リアルタイム表示したいなら setState()
+    },
+  );
 
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  _autoStop?.cancel();
+  _autoStop = Timer(const Duration(seconds: 60), () async {
+    await stopSttAndFill();
+  });
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+Future<void> stopSttAndFill() async {
+  _autoStop?.cancel();
+  await _stt.stop();
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
+  draft = parseKarteFromText(transcript);
+  // setStateしてフォームに反映
+}
 
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
+Future<void> saveToFirestore(String salonId, String customerId, KarteDraft d) async {
+  final uid = FirebaseAuth.instance.currentUser?.uid ?? "unknown";
+
+  final ref = FirebaseFirestore.instance
+      .collection("salons").doc(salonId)
+      .collection("customers").doc(customerId)
+      .collection("records").doc();
+
+  await ref.set({
+    ...d.toMap(),
+    "stylistId": uid,
+    "source": "voice",
+    "transcript": d.memo, // 保険
+  });
+
+  await FirebaseFirestore.instance
+      .collection("salons").doc(salonId)
+      .collection("customers").doc(customerId)
+      .set({
+        "lastVisitAt": FieldValue.serverTimestamp(),
+        "updatedAt": FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
 }
