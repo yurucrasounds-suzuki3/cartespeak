@@ -44,6 +44,10 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<key>NSSpeechRecognitionUsageDescription</key>
+        <string>音声をカルテ入力に使います。</string>
+    <key>NSMicrophoneUsageDescription</key>
+        <string>音声を録音してカルテ作成に使います。</string>
 	<true/>
 </dict>
 </plist>
