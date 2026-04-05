@@ -172,7 +172,7 @@ class _KartePageState extends State<KartePage> {
   final stt.SpeechToText _speech = stt.SpeechToText();
 
   // ここを自分のGASの /exec URL に置き換える
-  final String _apiUrl = 'https://script.google.com/macros/s/XXXXXXXXXXXX/exec';
+  final String _apiUrl = 'https://script.google.com/macros/s/AKfycbw0y91e5IPgZ8XutQlubbEnJhY4C28flat3eMPYPMMcdjVgmOuaOh0ox7XJyPpIbv4f/exec';
 
   final _customerNameController = TextEditingController();
   final _menuController = TextEditingController();
