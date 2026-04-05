@@ -1,0 +1,220 @@
+diff --git a/cartespeak/lib/main.dart b/cartespeak/lib/main.dart
+index 159890b..663ffab 100644
+--- a/cartespeak/lib/main.dart
++++ b/cartespeak/lib/main.dart
+@@ -36,6 +36,28 @@ class KarteDraft {
+   String memo = '';
+ }
+ 
++class SubmittedRecord {
++  SubmittedRecord({
++    required this.createdAt,
++    required this.customerName,
++    required this.menu,
++    required this.color,
++    required this.length,
++    required this.concerns,
++    required this.memo,
++    required this.destination,
++  });
++
++  final DateTime createdAt;
++  final String customerName;
++  final String menu;
++  final String color;
++  final String length;
++  final String concerns;
++  final String memo;
++  final String destination;
++}
++
+ KarteDraft parseKarteFromText(String text) {
+   final t = text.replaceAll(RegExp(r'\s+'), '');
+   final d = KarteDraft();
+@@ -141,8 +163,13 @@ Future<void> sendToSheet({
+   required String memo,
+   required String transcript,
+ }) async {
++  final uri = Uri.tryParse(apiUrl);
++  if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
++    throw Exception('GASのURLが不正です');
++  }
++
+   final res = await http.post(
+-    Uri.parse(apiUrl),
++    uri,
+     body: {
+       'customerName': customerName,
+       'menu': menu,
+@@ -154,7 +181,7 @@ Future<void> sendToSheet({
+       'memo': memo,
+       'transcript': transcript,
+     },
+-  );
++  ).timeout(const Duration(seconds: 20));
+ 
+   if (res.statusCode != 200) {
+     throw Exception('送信失敗: ${res.statusCode} ${res.body}');
+@@ -170,11 +197,16 @@ class KartePage extends StatefulWidget {
+ 
+ class _KartePageState extends State<KartePage> {
+   final stt.SpeechToText _speech = stt.SpeechToText();
++  static const String _defaultApiUrl =
++      'https://script.google.com/macros/s/AKfycbw0y91e5IPgZ8XutQlubbEnJhY4C28flat3eMPYPMMcdjVgmOuaOh0ox7XJyPpIbv4f/exec';
+ 
+-  // ここを自分のGASの /exec URL に置き換える
+-  final String _apiUrl = 'https://script.google.com/macros/s/XXXXXXXXXXXX/exec';
++  static const String _apiUrl = String.fromEnvironment(
++    'GAS_WEB_APP_URL',
++    defaultValue: _defaultApiUrl,
++  );
+ 
+   final _customerNameController = TextEditingController();
++  final _apiUrlController = TextEditingController(text: _apiUrl);
+   final _menuController = TextEditingController();
+   final _colorController = TextEditingController();
+   final _lengthController = TextEditingController();
+@@ -188,6 +220,7 @@ class _KartePageState extends State<KartePage> {
+   String _statusText = '待機中';
+   String _recognizedText = '';
+   int _remainingSeconds = 60;
++  final List<SubmittedRecord> _localSubmissions = [];
+ 
+   Timer? _autoStopTimer;
+   Timer? _countdownTimer;
+@@ -195,6 +228,7 @@ class _KartePageState extends State<KartePage> {
+   @override
+   void dispose() {
+     _customerNameController.dispose();
++    _apiUrlController.dispose();
+     _menuController.dispose();
+     _colorController.dispose();
+     _lengthController.dispose();
+@@ -283,6 +317,8 @@ class _KartePageState extends State<KartePage> {
+   }
+ 
+   Future<void> submit() async {
++    final currentApiUrl = _apiUrlController.text.trim();
++
+     if (_customerNameController.text.trim().isEmpty) {
+       ScaffoldMessenger.of(context).showSnackBar(
+         const SnackBar(content: Text('顧客名を入れてください')),
+@@ -296,25 +332,45 @@ class _KartePageState extends State<KartePage> {
+     });
+ 
+     try {
+-      await sendToSheet(
+-        apiUrl: _apiUrl,
+-        customerName: _customerNameController.text.trim(),
+-        menu: _menuController.text.trim(),
+-        color: _colorController.text.trim(),
+-        length: _lengthController.text.trim(),
+-        concerns: _concernsController.text.trim(),
+-        caution: _cautionController.text.trim(),
+-        next: _nextController.text.trim(),
+-        memo: _memoController.text.trim(),
+-        transcript: _recognizedText,
+-      );
++      var destination = '端末内の一時保存';
++      if (currentApiUrl.isNotEmpty) {
++        await sendToSheet(
++          apiUrl: currentApiUrl,
++          customerName: _customerNameController.text.trim(),
++          menu: _menuController.text.trim(),
++          color: _colorController.text.trim(),
++          length: _lengthController.text.trim(),
++          concerns: _concernsController.text.trim(),
++          caution: _cautionController.text.trim(),
++          next: _nextController.text.trim(),
++          memo: _memoController.text.trim(),
++          transcript: _recognizedText,
++        );
++        destination = 'Googleスプレッドシート（GAS）';
++      }
++
++      setState(() {
++        _localSubmissions.insert(
++          0,
++          SubmittedRecord(
++            createdAt: DateTime.now(),
++            customerName: _customerNameController.text.trim(),
++            menu: _menuController.text.trim(),
++            color: _colorController.text.trim(),
++            length: _lengthController.text.trim(),
++            concerns: _concernsController.text.trim(),
++            memo: _memoController.text.trim(),
++            destination: destination,
++          ),
++        );
++      });
+ 
+       setState(() {
+         _statusText = '送信完了';
+       });
+ 
+       ScaffoldMessenger.of(context).showSnackBar(
+-        const SnackBar(content: Text('スプレッドシートに保存しました')),
++        SnackBar(content: Text('$destination に保存しました')),
+       );
+     } catch (e) {
+       setState(() {
+@@ -381,10 +437,21 @@ class _KartePageState extends State<KartePage> {
+                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                   ),
+                   const SizedBox(height: 8),
+-                  const Text(
+-                    '例：今日はカットとカラー。暗めアッシュで赤み消し。頭皮しみやすい。次回6週間でリタッチ。',
++                  Text(
++                    '例：今日はカットとカラー。暗めアッシュで赤み消し。頭皮しみやすい。次回6週間でリタッチ。\n'
++                    '保存先: ${_apiUrlController.text.trim().isEmpty ? "端末内の一時保存（この画面下）" : "Googleスプレッドシート（GAS）"}',
+                   ),
+                   const SizedBox(height: 16),
++                  TextField(
++                    controller: _apiUrlController,
++                    onChanged: (_) => setState(() {}),
++                    decoration: const InputDecoration(
++                      labelText: 'GAS Web App URL（任意）',
++                      hintText: 'https://script.google.com/macros/s/.../exec',
++                      border: OutlineInputBorder(),
++                    ),
++                  ),
++                  const SizedBox(height: 12),
+                   SizedBox(
+                     width: double.infinity,
+                     height: 56,
+@@ -511,8 +578,33 @@ class _KartePageState extends State<KartePage> {
+               ),
+             ],
+           ),
++          const SizedBox(height: 20),
++          const Text(
++            '保存履歴（試験用）',
++            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
++          ),
++          const SizedBox(height: 8),
++          if (_localSubmissions.isEmpty)
++            const Text('まだ保存データはありません'),
++          ..._localSubmissions.map(
++            (record) => Card(
++              child: ListTile(
++                title: Text(
++                  '${record.customerName} / ${record.menu.isEmpty ? "施術未入力" : record.menu}',
++                ),
++                subtitle: Text(
++                  '${record.createdAt.toLocal()}'
++                  '\n保存先: ${record.destination}'
++                  '\n色: ${record.color.isEmpty ? "-" : record.color} / 長さ: ${record.length.isEmpty ? "-" : record.length}'
++                  '\n悩み: ${record.concerns.isEmpty ? "-" : record.concerns}'
++                  '\nメモ: ${record.memo.isEmpty ? "-" : record.memo}',
++                ),
++                isThreeLine: true,
++              ),
++            ),
++          ),
+         ],
+       ),
+     );
+   }
+-}
+\ No newline at end of file
++}
