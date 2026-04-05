@@ -14,6 +14,9 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>cartespeak</string>
+	<string>音声でカルテを入力するためにマイクを使用します。</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>話した内容を文字起こししてカルテに反映するために音声認識を使用します。</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -44,10 +47,7 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<key>NSSpeechRecognitionUsageDescription</key>
-        <string>音声をカルテ入力に使います。</string>
-    <key>NSMicrophoneUsageDescription</key>
-        <string>音声を録音してカルテ作成に使います。</string>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
 </dict>
 </plist>
